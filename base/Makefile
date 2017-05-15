@@ -74,7 +74,8 @@ $(OBJDIR)/%.o: %.cpp
 $(DEPDIR)/%.d: %.cpp
 	@echo "[makedep] $< -> .d"
 	@mkdir -p $(DEPDIR)/$(*D)
-	@$(CXX) -MM -MP -MG -MT "$(OBJDIR)/$*.o $@" -MF "$@" $< $(INCLUDE) $(CXXFLAGS)
+	@$(CXX) -MM -MP -MG -MT "$(OBJDIR)/$*.o $@" \
+	-MF "$@" $< $(INCLUDE) $(CXXFLAGS)
 
 makedir: | $(MAKEDIR)
 
@@ -106,12 +107,10 @@ clean-all: clean $(MCLNALL)
 ################################ PREREQUISITES ################################
 # Do not include list of dependencies with clean rules
 ifneq ($(MAKECMDGOALS), clean)
-ifneq ($(MAKECMDGOALS), clean-all)
-ifneq ($(MAKECMDGOALS), cleanest)
-  -include $(DEP)
-  ifeq ($(MAKECMDGOALS), tests)
-	-include $(TDEP)
+  ifneq ($(MAKECMDGOALS), clean-all)
+    -include $(DEP)
+    ifeq ($(MAKECMDGOALS), tests)
+      -include $(TDEP)
+    endif
   endif
-endif
-endif
 endif
