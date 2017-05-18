@@ -119,7 +119,7 @@ $(TEXEC):
 
 $(TMAINDEPS): %.mk: %.d
 	$(ECHO) "[makedep] $< -> .mk"
-	$(SUPPRESS) mkdir -p $(DEPDIR)/$(*D)
+	$(SUPPRESS) mkdir -p $(*D)
 	$(SUPPRESS) objs="$(*F)_OBJS";\
 	echo $$objs:='$$(shell cat $*.d)' > $@;\
 	echo $$objs:='$$(filter %.h %.hpp %.cpp,$$('$$objs'))' >> $@;\
@@ -145,7 +145,7 @@ ifneq ($(MAKECMDGOALS), clean)
   ifneq ($(MAKECMDGOALS), clean-all)
     -include $(DEPS)
     ifeq ($(MAKECMDGOALS), tests)
-      -include $(TDEP)
+      -include $(TDEPS)
       -include $(TMAINDEPS)
     endif
   endif
