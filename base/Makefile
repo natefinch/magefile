@@ -1,5 +1,5 @@
 ###############################################################################
-###################### <github.com/aszdrick/magefile/> ########################
+####################### <github.com/aszdrick/magefile> ########################
 ############################ <aszdrick@gmail.com> #############################
 ###############################################################################
 
@@ -31,17 +31,20 @@ BINDIR :=bin
 TSTDIR :=tests
 DEPDIR :=.deps
 ############################ PROJECT CONFIGURATION ############################
+SUFFIXES  :=.h .hpp .cpp
 # Compiler & linker flags
-CXXFLAGS :=-Wall
-LDFLAGS  :=
-LDLIBS   :=
-INCLUDE  :=-I$(INCDIR)
+CXXFLAGS  :=-std=c++14 -Wall
+LDFLAGS   :=
+LDLIBS    :=
+INCLUDE   :=-I$(INCDIR)
 # Files
-MAINFILE :=main
-PROGRAM  :=$(BINDIR)/execute_me
-SOURCES  :=$(shell find $(SRCDIR) -name '*.cpp' 2> /dev/null)
-DEPS     :=$(patsubst %.cpp,$(DEPDIR)/%.d,$(SOURCES))
-OBJECTS  :=$(patsubst %.cpp,$(OBJDIR)/%.o,$(SOURCES))
+MAINFILES :=src/main.cpp
+PROGRAMS  :=$(BINDIR)/execute_me
+MAINDEPS  :=$(patsubst %.cpp,$(DEPDIR)/%.mk,$(MAINFILES))
+SOURCES   :=$(shell find $(SRCDIR) -name '*.cpp' 2> /dev/null)
+OBJECTS   :=$(patsubst %.cpp,$(OBJDIR)/%.o,$(SOURCES))
+DEPS      :=$(patsubst %.cpp,$(DEPDIR)/%.d,$(SOURCES))
+CALLS     :=$(notdir $(PROGRAMS))
 ############################# TESTS CONFIGURATION #############################
 # Compiler & linker flags for tests
 TCXXFLAGS  :=
@@ -50,12 +53,12 @@ TLDLIBS    :=
 TINCLUDE   :=
 # Files
 TMAINFILES :=$(wildcard $(TSTDIR)/*.cpp)
+TPROGRAMS  :=$(patsubst $(TSTDIR)/%.cpp,$(BINDIR)/%,$(TMAINFILES))
 TMAINDEPS  :=$(patsubst %.cpp,$(DEPDIR)/%.mk,$(TMAINFILES))
 TSOURCES   :=$(shell find $(TSTDIR) -name '*.cpp' 2> /dev/null)
 TOBJECTS   :=$(patsubst %.cpp,$(OBJDIR)/%.o,$(TSOURCES))
 TDEPS      :=$(patsubst %.cpp,$(DEPDIR)/%.d,$(TSOURCES))
-TPROGRAMS  :=$(patsubst $(TSTDIR)/%.cpp,$(BINDIR)/%,$(TMAINFILES))
-TCALLS     :=$(patsubst $(TSTDIR)/%.cpp,%,$(TMAINFILES))
+TCALLS     :=$(notdir $(TPROGRAMS))
 ################################ MISCELLANEOUS ################################
 # Debug flag, deactivates all supressed echoing
 DEBUG   :=0
@@ -68,25 +71,36 @@ ifeq ($(DEBUG),0)
 SILENT  :=@
 endif
 # Multiline variable with all commands to generate .mk files for each main file
-define MAKE_MAIN_DEPS
-	$(eval TEMP:=$(filter %.h %.hpp %.cpp,$(shell cat $*.d)))
-	$(eval TEMP:=$(patsubst $(INCDIR)/%.hpp,$(SRCDIR)/%.cpp,$(TEMP)))
-	$(eval TEMP:=$(patsubst %.cpp,$(OBJDIR)/%.o,$(TEMP)))
-	$(eval TEMP:=$(filter $(TEMP),$(OBJECTS) $(TOBJECTS)))
-	$(eval $(*F)_DEPS:=$(patsubst $(OBJDIR)/%.o,$(DEPDIR)/%.d,$(TEMP)))
-	$(file > $@,$(*F)_OBJS :=$(TEMP))
-	$(file >> $@,$$(BINDIR)/$(*F): $$($(*F)_OBJS))
-	$(file >> $@,-include $($(*F)_DEPS))
+# Arguments: file to be written, file to read of, target file, objects variable
+# name, dependencies variable name
+define make_main_deps
+	$(eval $(4):=$(filter $(addprefix %,$(SUFFIXES)),$(shell cat $(2))))
+	$(eval $(4):=$(basename $($(4))))
+	$(eval $(4):=$(patsubst $(INCDIR)/%,$(SRCDIR)/%,$($(4))))
+	$(eval $(4):=$(patsubst %,$(OBJDIR)/%.o,$($(4))))
+	$(eval $(4):=$(filter $($(4)),$(OBJECTS) $(TOBJECTS)))
+	$(eval $(5):=$(patsubst $(OBJDIR)/%.o,$(DEPDIR)/%.d,$($(4))))
+	$(file > $(1),$(4) :=$($(4)))
+	$(file >> $(1),$(3): $$($(4)))
+	$(file >> $(1),-include $($(5)))
 endef
 
-.PHONY: all makedir clean clean-all tests $(TCALLS)
+MAINEXECVARS :=$(basename $(notdir $(MAINFILES) $(TMAINFILES)))
+MAINEXECVARS :=$(addsuffix _EXEC:=,$(MAINEXECVARS))
+MAINEXECVARS :=$(join $(MAINEXECVARS), $(PROGRAMS) $(TPROGRAMS))
+$(foreach var,$(MAINEXECVARS),$(eval $(var)))
+
+.PHONY: all makedir clean distclean tests $(TCALLS)
 
 ################################# MAIN RULES ##################################
-all: makedir $(PROGRAM)
+all: makedir $(PROGRAMS)
 
-$(PROGRAM): $(OBJECTS) | $(BINDIR)
+$(foreach target,$(CALLS) $(TCALLS),$(eval $(target): $(BINDIR)/$(target)))
+
+$(PROGRAMS) $(TPROGRAMS): | $(BINDIR)
 	$(MPRINT) "[linking] $@"
-	$(SILENT) $(CXX) $(CXXFLAGS) $(LDFLAGS) $(OBJECTS) $(LDLIBS) -o $@
+	$(SILENT) $(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCLUDE) \
+	$($(@F)_OBJS) $(LDLIBS) -o $@
 
 $(OBJDIR)/%.o: %.cpp
 	$(MPRINT) "[  $(CXX)  ] $< -> .o"
@@ -99,6 +113,13 @@ $(DEPDIR)/%.d: %.cpp
 	$(SILENT) $(CXX) $(CXXFLAGS) $(INCLUDE) -MM -MP -MG \
 	-MT "$(OBJDIR)/$*.o $@" -MF "$@" $<
 
+$(MAINDEPS) $(TMAINDEPS): %.mk: %.d
+	$(MPRINT) "[makedep] $< -> .mk"
+	$(SILENT) mkdir -p $(*D)
+	$(eval OBJS_LABEL=$(notdir $($(*F)_EXEC))_OBJS)
+	$(eval DEPS_LABEL=$(notdir $($(*F)_EXEC))_DEPS)
+	$(call make_main_deps,$@,$^,$($(*F)_EXEC),$(OBJS_LABEL),$(DEPS_LABEL))
+
 makedir: | $(MAKEDIR)
 
 $(MAKEDIR):
@@ -108,8 +129,6 @@ $(MAKEDIR):
 ################################ TESTS RULES ##################################
 tests: makedir $(TPROGRAMS)
 
-$(foreach t,$(TCALLS),$(eval $(NEWLINE)$(t): $(BINDIR)/$(t)))
-
 $(TPROGRAMS): LDLIBS +=$(TLDLIBS)
 
 $(TPROGRAMS): LDFLAGS +=$(TLDFLAGS)
@@ -118,32 +137,22 @@ $(OBJDIR)/$(TSTDIR)/%.o: CXXFLAGS +=$(TCXXFLAGS)
 
 $(OBJDIR)/$(TSTDIR)/%.o: INCLUDE +=$(TINCLUDE)
 
-$(TPROGRAMS): | $(BINDIR)
-	$(MPRINT) "[linking] $@"
-	$(SILENT) $(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCLUDE) \
-	$($(@F)_OBJS) $(LDLIBS) -o $@
-
-$(TMAINDEPS): %.mk: %.d
-	$(MPRINT) "[makedep] $< -> .mk"
-	$(SILENT) mkdir -p $(*D)
-	$(MAKE_MAIN_DEPS)
-
 ################################ CLEAN RULES ##################################
 # Only remove object files
-clean: $(MCLEAN)
+clean:
 	$(SILENT) $(RM) -r $(OBJDIR)
+	$(SILENT) $(RM) -r $(BINDIR)
 
 # Remove object, binary and dependency files
-clean-all: clean $(MCLNALL)
-	$(SILENT) $(RM) -r $(BINDIR)
+distclean: clean
 	$(SILENT) $(RM) -r $(DEPDIR)
 
 ################################ PREREQUISITES ################################
 # Do not include list of dependencies with clean rules
-ifeq ($(filter clean clean-all,$(MAKECMDGOALS)),)
+ifeq ($(filter-out all $(CALLS) $(PROGRAMS),$(MAKECMDGOALS)),)
+  -include $(MAINDEPS)
+else
   ifneq ($(filter tests $(TCALLS) $(TPROGRAMS),$(MAKECMDGOALS)),)
     -include $(TMAINDEPS)
-  else
-    -include $(DEPS)
   endif
 endif
