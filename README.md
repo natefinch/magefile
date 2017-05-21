@@ -21,18 +21,20 @@ All variables of interesting for the user are placed inside a section named __PR
 * __INCLUDE__: the directories that should be added with -I flag. The __INCDIR__ is added by default;
 * __TMAINFILES__: see __MAINFILES__, applied to tests;
 * __TBINARIES__: see __BINARIES__, applied to tests;
-* __TCXXFLAGS__: see __CXXFLAGS__, applied to tests. In fact, this variable is added to __CXXFLAGS__, instead of substituting it;
-* __TLDFLAGS__: see __LDFLAGS__, applied to tests. In fact, this variable is added to __LDFLAGS__, instead of substituting it;
-* __TLDLIBS__: see __LDLIBS__, applied to tests. In fact, this variable is added to __LDLIBS__, instead of substituting it;
-* __TINCLUDE__: see __INCLUDE__, applied to tests. In fact, this variable is added to __INCLUDE__, instead of substituting it;
+* __TCXXFLAGS__: see __CXXFLAGS__, applied to tests;
+* __TLDFLAGS__: see __LDFLAGS__, applied to tests;
+* __TLDLIBS__: see __LDLIBS__, applied to tests;
+* __TINCLUDE__: see __INCLUDE__, applied to tests;
 * __DEBUG__: if different of 0, removes all supressing of commands echoing;
+
+All the flags and libs specific to tests are appended to the flags and libs of the project.
 
 ### Building
 The basic goals supported so far by this makefile are listed bellow:
 * __all__: default goal. Compiles and links all binaries listed in __BINARIES__;
 * __tests__: compiles and links all binaries listed in __TBINARIES__;
 * __clean__: removes all generated objects and binaries;
-* __distclean__: executes __clean__ and removes all generated dependencies, as well;
+* __distclean__: executes __clean__ and removes all generated dependencies as well;
 
 Besides this goals, the makefile autogenerate goals with the name of each binary (from both, __BINARIES__ and __TBINARIES__). It is also possible to give a specific name of a file, which will result in the execution of any rule to create or update it (if necessary).
 
