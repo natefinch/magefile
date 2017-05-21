@@ -33,10 +33,10 @@ OBJDIR :=build
 BINDIR :=bin
 TSTDIR :=tests
 DEPDIR :=.deps
-### PROGRAMS-RELATED VARIABLES
+### PROGRAM-RELATED VARIABLES
 # Files
 MAINFILES :=src/main.cpp
-PROGRAMS  :=$(BINDIR)/execute_me
+BINARIES  :=$(BINDIR)/execute_me
 # Compiler & linker flags
 CXXFLAGS :=-std=c++14 -Wall
 LDFLAGS  :=
@@ -45,7 +45,7 @@ INCLUDE  :=-I$(INCDIR)
 ### TESTS-RELATED VARIABLES
 # Files
 TMAINFILES :=$(wildcard $(TSTDIR)/*.cpp)
-TPROGRAMS  :=$(patsubst $(TSTDIR)/%.cpp,$(BINDIR)/%,$(TMAINFILES))
+TBINARIES  :=$(patsubst $(TSTDIR)/%.cpp,$(BINDIR)/%,$(TMAINFILES))
 # Compiler & linker flags
 TCXXFLAGS :=
 TLDFLAGS  :=
@@ -55,18 +55,18 @@ TINCLUDE  :=
 # Debug flag, if != 0 deactivates all supressed echoing
 DEBUG :=0
 ############################# AUTOMATIC VARIABLES #############################
-### PROGRAMS-RELATED VARIABLES
+### PROGRAM-RELATED VARIABLES
 MAINDEPS :=$(patsubst %.cpp,$(DEPDIR)/%.mk,$(MAINFILES))
 SOURCES  :=$(shell find $(SRCDIR) -name '*.cpp' 2> /dev/null)
 OBJECTS  :=$(patsubst %.cpp,$(OBJDIR)/%.o,$(SOURCES))
 DEPS     :=$(patsubst %.cpp,$(DEPDIR)/%.d,$(SOURCES))
-CALLS    :=$(notdir $(PROGRAMS))
+CALLS    :=$(notdir $(BINARIES))
 ### TESTS-RELATED VARIABLES
 TMAINDEPS :=$(patsubst %.cpp,$(DEPDIR)/%.mk,$(TMAINFILES))
 TSOURCES  :=$(shell find $(TSTDIR) -name '*.cpp' 2> /dev/null)
 TOBJECTS  :=$(patsubst %.cpp,$(OBJDIR)/%.o,$(TSOURCES))
 TDEPS     :=$(patsubst %.cpp,$(DEPDIR)/%.d,$(TSOURCES))
-TCALLS    :=$(notdir $(TPROGRAMS))
+TCALLS    :=$(notdir $(TBINARIES))
 ### MISCELLANEOUS
 # Command to print status messages
 MPRINT  :=@echo
@@ -77,7 +77,7 @@ ALLSUFFIXES  :=$(HEADER_SUFFIXES) .cpp
 # Creation of variables associating each main file with a program
 MAINEXECVARS :=$(basename $(notdir $(MAINFILES) $(TMAINFILES)))
 MAINEXECVARS :=$(addsuffix _EXEC:=,$(MAINEXECVARS))
-MAINEXECVARS :=$(join $(MAINEXECVARS), $(PROGRAMS) $(TPROGRAMS))
+MAINEXECVARS :=$(join $(MAINEXECVARS), $(BINARIES) $(TBINARIES))
 $(foreach var,$(MAINEXECVARS),$(eval $(var)))
 # Multiline variable with all commands to generate .mk files for each main file
 # Arguments: file to be written, file to read of, target file, objects variable
@@ -101,11 +101,11 @@ endif
 .PHONY: all makedir clean distclean tests $(TCALLS)
 
 ################################# MAIN RULES ##################################
-all: makedir $(PROGRAMS)
+all: makedir $(BINARIES)
 
 $(foreach target,$(CALLS) $(TCALLS),$(eval $(target): $(BINDIR)/$(target)))
 
-$(PROGRAMS) $(TPROGRAMS): | $(BINDIR)
+$(BINARIES) $(TBINARIES): | $(BINDIR)
 	$(MPRINT) "[linking] $@"
 	$(SILENT) $(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCLUDE) \
 	$($(@F)_OBJS) $(LDLIBS) -o $@
@@ -135,11 +135,11 @@ $(MAKEDIR):
 	$(SILENT) mkdir -p $@
 
 ################################ TESTS RULES ##################################
-tests: makedir $(TPROGRAMS)
+tests: makedir $(TBINARIES)
 
-$(TPROGRAMS): LDLIBS +=$(TLDLIBS)
+$(TBINARIES): LDLIBS +=$(TLDLIBS)
 
-$(TPROGRAMS): LDFLAGS +=$(TLDFLAGS)
+$(TBINARIES): LDFLAGS +=$(TLDFLAGS)
 
 $(OBJDIR)/$(TSTDIR)/%.o: CXXFLAGS +=$(TCXXFLAGS)
 
@@ -157,10 +157,10 @@ distclean: clean
 
 ################################ PREREQUISITES ################################
 # Do not include list of dependencies with clean rules
-ifeq ($(filter-out all $(CALLS) $(PROGRAMS),$(MAKECMDGOALS)),)
+ifeq ($(filter-out all $(CALLS) $(BINARIES),$(MAKECMDGOALS)),)
   -include $(MAINDEPS)
 else
-  ifneq ($(filter tests $(TCALLS) $(TPROGRAMS),$(MAKECMDGOALS)),)
+  ifneq ($(filter tests $(TCALLS) $(TBINARIES),$(MAKECMDGOALS)),)
     -include $(TMAINDEPS)
   endif
 endif
