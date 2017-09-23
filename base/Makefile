@@ -74,8 +74,6 @@ space :=$(empty) $(empty)
 # No operation of shell script
 # Command to print status messages
 INFO :=@echo
-# List with all suffixes for headers and sources
-ALLSUFFIXES :=$(HEADERSUFFIXES) cpp
 # Patterns to filter all header files
 HEADERPATTERNS :=$(addprefix %.,$(HEADERSUFFIXES))
 # Creation of variables associating each main file with a program
@@ -87,43 +85,38 @@ SOURCES +=$(shell find $(TSTDIR) -name '*.cpp' 2> /dev/null)
 OBJECTS :=$(eval OBJECTS:=$(patsubst %.cpp,$(OBJDIR)/%.o,$(SOURCES)))$(OBJECTS)
 # Arguments: target string, output name, input name
 makedep = $(CXX) $(CXXFLAGS) $(INCLUDE) -MM -MG -MT $(1) -MF "$(2)" $(3)
-# For all three *_makedeps the arguments are:
-# file to be written, target file, objects variable name
-define base_makedeps
+# Arguments: file to be written, target file, objects variable name
+define makedeps
 	$(info [makedep] $(2) -> .d)
+	$(shell mkdir -p $(dir $(1)))
+	$(shell $(call makedep,"$(OBJDIR)/$(3).o $(1)",$(1),$(2)))
 	$(eval $(3)_OBJ:=$(patsubst %.cpp,$(OBJDIR)/%.o,$(2)))
-	$(shell mkdir -p $(dir $(1)); $(call makedep,"$($(3)_OBJ) $(1)",$(1),$(2)))
-	$(eval $(3)_CHAIN:=$(filter $(HEADERPATTERNS),$(shell cat $(1))))
-	$(eval $(3)_CHAIN:=$(patsubst $(INCDIR)/%,$(SRCDIR)/%,$($(3)_CHAIN)))
-	$(eval $(3)_CHAIN:=$(patsubst %,$(OBJDIR)/%.o,$(basename $($(3)_CHAIN))))
-	$(eval $(3)_CHAIN:=$(filter $($(3)_CHAIN),$(OBJECTS)))
-	$(eval $(3)_CHAIN:=$(filter-out $($(3)_OBJ),$($(3)_CHAIN)))
-	$(eval STEM_CHAIN:=$(patsubst $(OBJDIR)/%.o,%,$($(3)_CHAIN)))
-	$(eval $(3)_CHAIN:=$(patsubst $(OBJDIR)/%.o,%_CHAIN,$($(3)_CHAIN)))
-	$(file >> $(1),-$(1): | $(patsubst %,$(DEPDIR)/%.d,$(STEM_CHAIN)))
-	$(foreach d,$(STEM_CHAIN),$(if $(filter-out $(NDEPS),$(DEPDIR)/$(d).d),
-		$(call chained_makedeps,$(DEPDIR)/$(d).d,$(d).cpp,$(d))))
-endef
-# makedeps directed to (other than main - "normal") files
-define chained_makedeps
+	$(eval $(3)_EDGES:=$(shell cat $(1)))
+	$(eval $(3)_EDGES:=$(filter $(HEADERPATTERNS),$($(3)_EDGES)))
+	$(eval $(3)_EDGES:=$(patsubst $(INCDIR)/%,$(SRCDIR)/%,$($(3)_EDGES)))
+	$(eval $(3)_EDGES:=$(patsubst %,$(OBJDIR)/%.o,$(basename $($(3)_EDGES))))
+	$(eval $(3)_EDGES:=$(filter $($(3)_EDGES),$(OBJECTS)))
+	$(eval $(3)_EDGES:=$(filter-out $($(3)_OBJ),$($(3)_EDGES)))
+	$(eval STEMS_LIST:=$(patsubst $(OBJDIR)/%.o,%,$($(3)_EDGES)))
+	$(eval $(3)_EDGES:=$(patsubst $(OBJDIR)/%.o,%_EDGES,$($(3)_EDGES)))
 	$(eval NDEPS+=$(1))
-	$(call base_makedeps,$(1),$(2),$(3))
-	$(file >> $(1),$(3)_CHAIN =$$(eval $(3)_CHAIN:=$($(3)_OBJ)\
-	 $($(3)_CHAIN))$$($(3)_CHAIN))
+	$(file >> $(1),-$(1): | $(patsubst %,$(DEPDIR)/%.d,$(STEMS_LIST)))
+	$(file >> $(1),$(3)_EDGES =$$(eval $(3)_EDGES:=$($(3)_OBJ)\
+	 $($(3)_EDGES))$$($(3)_EDGES))
+	$(file >> $(1),$(3)_OBJS =$$(eval RET:=)$$(eval $(3)_OBJS:=$$(call\
+	 expand_deps,$(3)_EDGES)$$(RET))$$($(3)_OBJS))
+	$(if $($(3)_EXEC),$(file >> $(1),$($(3)_EXEC): $$($(3)_OBJS)))
+	$(foreach d,$(STEMS_LIST),$(if $(filter-out $(NDEPS),$(DEPDIR)/$(d).d),
+		$(call makedeps,$(DEPDIR)/$(d).d,$(d).cpp,$(d))))
 endef
-# makedeps directed to main files
-define main_makedeps
-	$(call base_makedeps,$(1),$(2),$(3))
-	$(file >> $(1),$(3)_OBJS =$$(eval RET:=)$$(eval $(3)_OBJS:=$($(3)_OBJ)\
-	 $$(call expand_chain,$($(3)_CHAIN))$$(RET))$$($(3)_OBJS))
-	$(file >> $(1),$(3): $$($(3)_OBJS))
-endef
-# Receives a *_CHAIN list to expand
-# *_CHAIN list value: *.o [other *_CHAIN lists]
-define expand_chain
-	$(foreach list,$(1),$(eval RG1:=$(firstword $($(list))))\
-		$(if $(filter-out $(RET),$(RG1)),$(eval RET+=$(RG1))\
-			$(call expand_chain,$(filter-out $(RG1),$($(list))))))
+# Receives a *_EDGES list to expand
+# *_EDGES list value: *.o [other *_EDGES lists]
+define expand_deps
+	$(foreach list,$(1),\
+		$(eval RG1:=$(firstword $($(list))))\
+		$(if $(filter-out $(RET),$(RG1)),\
+			$(eval RET+=$(RG1))\
+			$(call expand_deps,$(filter-out $(RG1),$($(list))))))
 endef
 # If DEBUG is not active (i.e, equals 1), set supressing character (@)
 ifeq ($(DEBUG),0)
@@ -131,6 +124,7 @@ SILENT :=@
 endif
 
 .PHONY: all makedir clean distclean tests $(ALLCALLS)
+
 ################################# MAIN RULES ##################################
 all: makedir $(BINARIES)
 
@@ -146,11 +140,8 @@ $(OBJDIR)/%.o: %.cpp
 	$(SILENT) mkdir -p $(OBJDIR)/$(*D)
 	$(SILENT) $(CXX) $(CXXFLAGS) $(INCLUDE) -c $< -o $@
 
-$(MDEPS): $(DEPDIR)/%.d: %.cpp
-	$(SILENT) $(sh_nop) $(call main_makedeps,$@,$<,$($*_EXEC))
-
 $(DEPDIR)/%.d: %.cpp
-	$(SILENT) $(sh_nop) $(call chained_makedeps,$@,$<,$*)
+	$(SILENT) $(sh_nop) $(call makedeps,$@,$<,$*)
 
 makedir: | $(AUTODIR)
 

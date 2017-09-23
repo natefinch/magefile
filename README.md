@@ -1,11 +1,11 @@
 # MaGEfile - the official MaGES build system
-MaGEfile is a generic, non-recursive makefile designed for C++ projects. Its main goal is to provide a build system which requires a minimum amount of manual configuration, using automatic detection of dependencies and probing all necessary objects to link each executable specified by the user. A further goal is to create a well-defined structure to include new functionalities within the makefile, without directly editing its base file. The core ideas and source of inspiration comes mostly from [this](http://aegis.sourceforge.net/auug97.pdf) insightful paper.
+MaGEfile is a generic, non-recursive makefile designed for C++ projects. Its main goal is to provide a build system which requires a minimum amount of manual configuration, using automatic detection of dependencies and probing all necessary objects to link each executable specified by the user. A further goal is to create a well-defined structure to include new functionalities within the makefile, without directly editing its base file. The core ideas and source of inspiration come mostly from [this](http://aegis.sourceforge.net/auug97.pdf) insightful paper.
 
 ## How to use
-The functionalities of this makefile will be devided in Configuration, Building and Diagnosis. Currently, there is no support to diagnosis and configuration only addresses which variables you should consider to manually changing. Support to diagnosis and more complex, automated configuration is expected to be added some time in the future.
+The functionalities of this makefile will be devided in Configuration, Building and Diagnosis. Currently, there is no support to diagnosis and configuration only addresses which variables you should consider to change manually. Support to diagnosis and more complex, automated configuration is expected to be added some time in the future.
 
 ### Configuration
-All variables of interesting for the user are placed inside a section named __PROJECT VARIABLES__, quite visible. I may change this extravagant style later, but for now it is what it is. Most of the variables are straight-forward. The meaning of each one is listed bellow:
+All variables of interest to the user are placed inside a section named __PROJECT VARIABLES__, quite visible. I may change this extravagant style later, but for now it is what it is. Most of the variables are straight-forward. The meaning of each one is listed bellow:
 * __HEADER_SUFFIXES__: the suffixes that are accepted in header filenames. It affects the automatic detection of necessary object files, so make sure you don't forget to add any unorthodox suffix you may come to use. SOURCE_SUFFIXES will be added in later development, for now it only supports .cpp files (unless you search for all occurrencies and change them);
 * Variables terminated in __DIR__ specifies the directories of the project. At the moment, only one directory is supported for each variable, but with any depth of subdirectories;
     * __SRCDIR__: the sources directory (i.e., where you placed your implementation files);
@@ -36,7 +36,7 @@ The basic goals supported so far by this makefile are listed bellow:
 * __clean__: removes all generated objects and binaries;
 * __distclean__: executes __clean__ and removes all generated dependencies as well;
 
-Besides this goals, the makefile autogenerate goals with the name of each binary (from both, __BINARIES__ and __TBINARIES__). It is also possible to give a specific name of a file, which will result in the execution of any rule to create or update it (if necessary).
+Besides these goals, the makefile autogenerate goals with the name of each binary (from both, __BINARIES__ and __TBINARIES__). It is also possible to give a specific name of a file, which will result in the execution of any rule to create or update it (if necessary).
 
 ### Diagnosis
 Not present in this Plane of Existence, __yet__.
